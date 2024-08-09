@@ -1,9 +1,11 @@
 import whisper
 from tqdm import tqdm
 import os
+import torch
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
 # 加載 Whisper 模型
-model = whisper.load_model("base")
+model = whisper.load_model("small")
 
 def transcribe_audio(file_path, output_file):
     if os.path.exists(file_path):
@@ -18,19 +20,28 @@ def transcribe_audio(file_path, output_file):
     # 開啟文本文件，準備寫入轉錄結果
     with open(output_file, "w", encoding="utf-8") as f:
         segments = result["segments"]
+        current_text = ""
+        current_start_time = 0
+
         for segment in segments:
-            start_time = segment["start"]
             end_time = segment["end"]
-            text = segment["text"]  # 取得時間範圍內的文本內容
-            
-            # 轉換時間格式為 min:sec
-            start_min, start_sec = divmod(start_time, 60)
-            end_min, end_sec = divmod(end_time, 60)
-            formatted_start_time = f"{int(start_min):02}:{int(start_sec):02}"
-            formatted_end_time = f"{int(end_min):02}:{int(end_sec):02}"
-            
-            formatted_text = f"({formatted_start_time}~{formatted_end_time}) {text}\n"
-            f.write(formatted_text)  # 將格式化的文本寫入文件
+            text = segment["text"]
+
+            if end_time - current_start_time >= 60 or segment == segments[-1]:
+                # 如果時間間隔超過60秒或是最後一個片段，就輸出當前文本
+                start_min, start_sec = divmod(current_start_time, 60)
+                end_min, end_sec = divmod(end_time, 60)
+                formatted_start_time = f"{int(start_min):02}:{int(start_sec):02}"
+                formatted_end_time = f"{int(end_min):02}:{int(end_sec):02}"
+
+                formatted_text = f"({formatted_start_time}~{formatted_end_time}) {current_text.strip()}\n"
+                f.write(formatted_text)
+
+                # 重置當前文本和開始時間
+                current_text = ""
+                current_start_time = end_time
+
+            current_text += " " + text.strip()
 
     return output_file
 
@@ -60,8 +71,8 @@ def transcribe_folder(input_folder, output_folder):
             pbar.update(1)
 
 # 確認音訊文件資料夾路徑
-input_folder = r"D:\podrecom-main\podrecom-main\podcast_crawler\科技浪 Techwav"
-output_folder = r"D:\podrecom-main\transcriptions_text_list"
+input_folder = r"D:\Podcast_mp3存放區\Joe &amp; Jet 未過濾的 with Jason"
+output_folder = r"D:\Podcast_mp3存放區\轉錄文本存放區\Joe &amp; Jet 未過濾的 with Jason"
 
 # 調用函數進行資料夾中的所有文件轉錄
 transcribe_folder(input_folder, output_folder)
