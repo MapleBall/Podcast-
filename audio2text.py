@@ -71,8 +71,8 @@ def transcribe_folder(input_folder, output_folder):
             pbar.update(1)
 
 # 確認音訊文件資料夾路徑
-input_folder = r"D:\Podcast_mp3存放區\Joe &amp; Jet 未過濾的 with Jason"
-output_folder = r"D:\Podcast_mp3存放區\轉錄文本存放區\Joe &amp; Jet 未過濾的 with Jason"
+input_folder = r"D:\Podcast_mp3存放區\老高與小茉 Mr & Mrs Gao"
+output_folder = r"D:\Podcast_mp3存放區\轉錄文本存放區\老高與小茉 Mr & Mrs Gao"
 
 # 調用函數進行資料夾中的所有文件轉錄
 transcribe_folder(input_folder, output_folder)

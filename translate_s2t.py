@@ -5,7 +5,7 @@ from opencc import OpenCC
 cc = OpenCC('s2t')  # s2t 代表簡體到繁體
 
 # 指定要處理的資料夾路徑
-folder_path = r"D:\Podcast_mp3存放區\轉錄文本存放區\科技浪 Techwav"  # 替換成你的資料夾路徑
+folder_path = r"D:\Podcast_mp3存放區\轉錄文本存放區\老高與小茉 Mr & Mrs Gao"  # 替換成你的資料夾路徑
 output_folder_path = os.path.join(folder_path, 'converted_files')
 
 # 創建一個新資料夾來存放轉換後的文件
