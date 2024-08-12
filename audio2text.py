@@ -4,6 +4,7 @@ import os
 import torch
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+print(device)
 # 加載 Whisper 模型
 model = whisper.load_model("small")
 
@@ -15,7 +16,7 @@ def transcribe_audio(file_path, output_file):
         return
     
     # 進行音訊轉錄
-    result = model.transcribe(file_path)
+    result = model.transcribe(file_path,fp16=device)
     
     # 開啟文本文件，準備寫入轉錄結果
     with open(output_file, "w", encoding="utf-8") as f:
@@ -71,7 +72,7 @@ def transcribe_folder(input_folder, output_folder):
             pbar.update(1)
 
 # 確認音訊文件資料夾路徑
-input_folder = r"D:\Podcast_mp3存放區\老高與小茉 Mr & Mrs Gao"
+input_folder = r"D:\Podcast_mp3存放區\mp3\老高與小茉 Mr & Mrs Gao"
 output_folder = r"D:\Podcast_mp3存放區\轉錄文本存放區\老高與小茉 Mr & Mrs Gao"
 
 # 調用函數進行資料夾中的所有文件轉錄
