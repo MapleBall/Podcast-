@@ -9,16 +9,15 @@ print(device)
 model = whisper.load_model("small")
 
 def transcribe_audio(file_path, output_file):
-    if os.path.exists(file_path):
-        pass
-    else:
+    if not os.path.exists(file_path):
         print(f"文件不存在: {file_path}")
         return
     
     # 進行音訊轉錄
-    result = model.transcribe(file_path,fp16=device)
-    
-    # 開啟文本文件，準備寫入轉錄結果
+    result = model.transcribe(file_path, fp16=device)
+
+
+    # 直接寫入轉錄結果
     with open(output_file, "w", encoding="utf-8") as f:
         segments = result["segments"]
         current_text = ""
@@ -46,6 +45,7 @@ def transcribe_audio(file_path, output_file):
 
     return output_file
 
+
 def transcribe_folder(input_folder, output_folder):
     # 確認輸出資料夾是否存在，若不存在則創建
     if not os.path.exists(output_folder):
@@ -72,8 +72,8 @@ def transcribe_folder(input_folder, output_folder):
             pbar.update(1)
 
 # 確認音訊文件資料夾路徑
-input_folder = r"D:\Podcast_mp3存放區\mp3\老高與小茉 Mr & Mrs Gao"
-output_folder = r"D:\Podcast_mp3存放區\轉錄文本存放區\老高與小茉 Mr & Mrs Gao"
+input_folder = r"D:\Podcast_mp3存放區\mp3\寧可當吃貨"
+output_folder = r"D:\Podcast_mp3存放區\轉錄文本存放區\寧可當吃貨"
 
 # 調用函數進行資料夾中的所有文件轉錄
 transcribe_folder(input_folder, output_folder)
