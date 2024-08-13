@@ -1,0 +1,14 @@
+feedparser==6.0.11
+requests==2.31.0
+beautifulsoup4==4.12.3
+tqdm==4.66.1
+openai-whisper>=1.0.0
+opencc-python-reimplemented>=0.1.6
+transformers==4.42.3
+langchain==0.2.6
+langchain-community==0.2.6
+sentence-transformers==3.0.1
+# chroma-hnswlib==0.7.6
+chromadb==0.5.5
+langchain_groq
+gradio
