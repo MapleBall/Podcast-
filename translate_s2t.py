@@ -5,7 +5,7 @@ from opencc import OpenCC
 cc = OpenCC('s2t')  # s2t 代表簡體到繁體
 
 # 指定要處理的資料夾路徑
-folder_path = r"/media/starklab/BACKUP/Podcast_project/轉錄文本存放區/老高與小茉 Mr & Mrs Gao"  # 替換成你的資料夾路徑
+folder_path = r"/media/starklab/BACKUP/Podcast_project/轉錄文本存放區/史塔克實驗室" # 替換成你的資料夾路徑
 
 
 # 瀏覽資料夾內的所有 .txt 檔案
