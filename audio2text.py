@@ -3,6 +3,7 @@ from tqdm import tqdm
 import os
 import torch
 
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 # 加載 Whisper 模型
@@ -72,8 +73,8 @@ def transcribe_folder(input_folder, output_folder):
             pbar.update(1)
 
 # 確認音訊文件資料夾路徑
-input_folder = r"/media/starklab/BACKUP/Podcast_project/mp3/科技浪 Techwav"
-output_folder = r"/media/starklab/BACKUP/Podcast_project/轉錄文本存放區/科技浪 Techwav"
+input_folder = r"/media/starklab/BACKUP/Podcast_project/mp3/百靈果 News"
+output_folder = r"/media/starklab/BACKUP/Podcast_project/轉錄文本存放區/百靈果 News"
 
 # 調用函數進行資料夾中的所有文件轉錄
 transcribe_folder(input_folder, output_folder)
