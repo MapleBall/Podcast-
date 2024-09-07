@@ -7,7 +7,7 @@ import torch
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 # 加載 Whisper 模型
-model = whisper.load_model("medium")
+model = whisper.load_model("medium") #whisper_model{'tiny','base,'small','medium','large-v2/v3'}
 
 def transcribe_audio(file_path, output_file):
     if not os.path.exists(file_path):
