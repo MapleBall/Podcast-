@@ -8,7 +8,6 @@ transformers==4.42.3
 langchain==0.2.6
 langchain-community==0.2.6
 sentence-transformers==3.0.1
-# chroma-hnswlib==0.7.6
 gradio
 
 langchain_groq
