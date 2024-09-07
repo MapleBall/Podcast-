@@ -117,7 +117,7 @@ def setup_qa_chain(use_cpu=False):
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     
     # 使用新的FAISS檢索邏輯，並傳入 use_cpu 參數
-    parent_directory = r"D:\Podcast_mp3_save\VectoreStore"  # 更新為您的向量庫目錄
+    parent_directory = r"C:\Users\stanl\OneDrive\文件\GitHub\Podcast-\VectoreStore_sample"  # 更新為您的向量庫目錄
     embeddings = create_embeddings(use_cpu)
     vectorstores = load_vectorstores_from_directory(parent_directory, embeddings)
     
@@ -247,7 +247,7 @@ def main(use_cpu=False):
         return overlap >= threshold
 
     with gr.Blocks() as iface:
-        gr.Markdown(f"## 目前資料庫中的節目有：\n{get_program_list('/media/starklab/BACKUP/Podcast_project/轉錄文本存放區')}\n\n請在下方提問：")
+        gr.Markdown(f"## 目前資料庫中的節目有：\n{get_program_list('C:/Users/stanl/OneDrive/文件/GitHub/Podcast-/VectoreStore_sample')}\n\n請在下方提問：")
 
         chatbot = gr.ChatInterface(
             chat_function,
