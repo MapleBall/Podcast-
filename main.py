@@ -117,7 +117,7 @@ def setup_qa_chain(use_cpu=False):
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     
     # 使用新的FAISS檢索邏輯，並傳入 use_cpu 參數
-    parent_directory = r"C:\Users\stanl\OneDrive\文件\GitHub\Podcast-\VectoreStore_sample"  # 更新為您的向量庫目錄
+    parent_directory = r"C:\Users\stanl\OneDrive\文件\GitHub\Podcast-\VectoreStore_1"  # 更新為您的向量庫目錄
     embeddings = create_embeddings(use_cpu)
     vectorstores = load_vectorstores_from_directory(parent_directory, embeddings)
     
