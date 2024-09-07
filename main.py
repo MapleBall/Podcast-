@@ -7,7 +7,6 @@ from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLMResult
 from langchain_community.vectorstores import FAISS
 from langchain.schema.runnable import RunnablePassthrough
-from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 import os
 import torch
@@ -17,7 +16,6 @@ import json
 import heapq
 from typing import Any, List, Mapping, Optional
 from pydantic import Field
-# from langchain_groq import ChatGroq
 
 # 設置環境變數以禁用 tokenizers 的並行處理
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -63,7 +61,7 @@ def retrieve_from_multiple_stores(vectorstores, query, k=5, fetch_k=100):
     
     return [doc for doc, score in heapq.nsmallest(k, all_results, key=lambda x: x[1])]
 
-### 使用ollama
+### 定義ollama類別
 class ChatOllama(BaseLLM):
     model_name: str = "llama3:8b"
     url: str = "http://localhost:11434/api/generate"
@@ -202,11 +200,11 @@ def main(use_cpu=False):
 
     def chat_function(message, history):
         try:
-            # 检查新问题是否与历史相关
+            # 檢查新的問題是否與對話歷史相關
             is_related = check_relevance(message, history)
 
             if not is_related:
-                # 如果不相关，清除对话历史
+                # 不相關則清除
                 qa_chain.memory.clear()
 
             results = retriever.invoke(message)
@@ -230,22 +228,21 @@ def main(use_cpu=False):
         except Exception as e:
             error_message = f"發生錯誤: {str(e)}\n很抱歉，我無法處理您的問題。請再試一次或換個問題。"
             return error_message
+        
+    # 檢查新對話與對話歷史是否相關 (關鍵字相似度比較)
     def check_relevance(new_question, history):
-        # 这里需要实现一个函数来判断新问题是否与历史相关
-        # 可以使用简单的关键词匹配或更复杂的语义相似度计算
-        # 这里只是一个示例实现
+        
         if not history:
             return False
 
-        last_question = history[-1][0]  # 获取最后一个问题
+        last_question = history[-1][0]  # 獲取最後一個問題
         
-        # 使用一些简单的启发式方法来判断相关性
-        # 例如，检查关键词重叠
+        # 關鍵字重疊性比較是否相關
         keywords_last = set(last_question.lower().split())
         keywords_new = set(new_question.lower().split())
         
         overlap = len(keywords_last.intersection(keywords_new))
-        threshold = min(len(keywords_last), len(keywords_new)) * 0.3  # 30% 重叠作为阈值
+        threshold = min(len(keywords_last), len(keywords_new)) * 0.3  # 閾值:30%
         
         return overlap >= threshold
 
@@ -257,8 +254,9 @@ def main(use_cpu=False):
             title="Podcast Q&A Assistant",
             description="Ask questions about podcast content, and I'll provide answers based on the retrieved information.",
             theme="soft",
+            # 設定一些快捷問題供使用者選擇
             examples=[
-                "林書豪這個賽季遇到了什麼困難？",
+                "還有甚麼節目與這個主題相關",
                 "請告訴我這個節目討論了哪些主題？",
                 "這集節目中有提到哪些重要的觀點？"
             ],
