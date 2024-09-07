@@ -1,343 +1,274 @@
-import feedparser
-import requests
-import time
-import random
-import re
-import json
-from bs4 import BeautifulSoup
+from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate, ChatPromptTemplate
+from langchain.schema import BaseRetriever
+from langchain.llms.base import BaseLLM
+from langchain.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLMResult
+from langchain_community.vectorstores import FAISS
+from langchain.schema.runnable import RunnablePassthrough
+from langchain_groq import ChatGroq
+from langchain_huggingface import HuggingFaceEmbeddings
 import os
+import torch
+import gradio as gr
+import requests
+import json
+import heapq
+from typing import Any, List, Mapping, Optional
+from pydantic import Field
+# from langchain_groq import ChatGroq
 
-def download_map3(url,name):
+# 設置環境變數以禁用 tokenizers 的並行處理
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-    filename = name+".mp3"
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(filename, 'wb') as file:
-            file.write(response.content)
-        print(f"檔案下載完成: {filename}")
+k = 5
+fetch_k = 100
+
+def create_embeddings(use_cpu=False):
+    device = "cpu" if use_cpu else ("cuda" if torch.cuda.is_available() else "cpu")
+    return HuggingFaceEmbeddings(
+        model_name="BAAI/bge-m3",
+        model_kwargs={'device': device}
+    )
+
+def load_FAISS_vectorstore(vectorstore_path, embeddings):
+    if os.path.exists(vectorstore_path):
+        try:
+            vectorstore = FAISS.load_local(vectorstore_path, embeddings, allow_dangerous_deserialization=True)
+            print(f"Loaded vector store from {vectorstore_path}")
+            return vectorstore
+        except Exception as e:
+            print(f"Error loading vector store from {vectorstore_path}: {str(e)}")
     else:
-        print("無法下載檔案")
-    
-def get_rss_file(newsurl,test_n):
-    
-    #得到節目名稱
-    def get_title_name(url):
-        response = requests.get(url)
+        print(f"Vector store not found at {vectorstore_path}")
+    return None
 
-        # 檢查是否成功獲取網頁內容
+def load_vectorstores_from_directory(parent_directory, embeddings):
+    vectorstores = []
+    for root, dirs, files in os.walk(parent_directory):
+        if 'index.faiss' in files and 'index.pkl' in files:
+            vectorstore_path = root
+            vs = load_FAISS_vectorstore(vectorstore_path, embeddings)
+            if vs:
+                vectorstores.append(vs)
+    return vectorstores
+
+def retrieve_from_multiple_stores(vectorstores, query, k=5, fetch_k=100):
+    all_results = []
+    for vs in vectorstores:
+        results = vs.max_marginal_relevance_search(query, k=fetch_k, fetch_k=fetch_k)
+        scored_results = vs.similarity_search_with_score(query, k=len(results))
+        all_results.extend(scored_results)
+    
+    return [doc for doc, score in heapq.nsmallest(k, all_results, key=lambda x: x[1])]
+
+### 使用ollama
+class ChatOllama(BaseLLM):
+    model_name: str = "llama3:8b"
+    url: str = "http://localhost:11434/api/generate"
+
+    def _call(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
+        data = {
+            "model": self.model_name,
+            "prompt": prompt
+        }
+        
+        response = requests.post(self.url, json=data)
         if response.status_code == 200:
-            # 使用BeautifulSoup解析HTML
-            soup = BeautifulSoup(response.content, 'html.parser')
-
-            # 尋找包含RSS網址的元素
-            find_rss=soup.find_all("",text=re.compile("item"))
-
-            #節目名稱
-            title=soup.find_all("title")[0].text
-        return title
-    
-
-                    
-            
-    if newsurl[13:21]=="firstory":
-        
-        # 發送GET請求獲取網頁內容
-        response = requests.get(newsurl)
-
-        # 檢查是否成功獲取網頁內容
-        if response.status_code == 200:
-            # 使用BeautifulSoup解析HTML
-            soup = BeautifulSoup(response.content, 'html.parser')
-
-            # 尋找包含RSS網址的元素
-            find_rss=soup.find_all("",text=re.compile("item"))
-
-            #節目名稱  ＃會創造一個同名資料夾
-            title=soup.find_all("title")[0].text
-            # 指定資料夾路徑
-            folder_path = title
-
-            # 檢查資料夾是否存在，如果不存在則創建它
-            if not os.path.exists(folder_path):
-                os.makedirs(folder_path)
-            
-            
-            #有幾集
-            n=len(soup.find_all("item"))
-            print(title,"一共",n,"集")
-            #全部的全部的集數名稱
-
-            if n<=2 or test_n=="all":
-                test_n=n
-
-            #for i in range(n):   #抓全部集數      #這邊的迴圈  是指定跑幾個幾集
-            #抓2集測試
-            for i in range(test_n):
-                time.sleep(random.randrange(1,5))
-                mp3_url=soup.find_all("item")[i].find('enclosure').get('url')
-                name=soup.find_all("item")[i].find('itunes:title').text
-                download_map3(mp3_url,title+"/"+name)
-                #print(name,"下載完畢")
-    else:
-        file = feedparser.parse(newsurl)
-        #print(file)
-        #節目名稱 ＃會創造一個同名資料夾
-        title=get_title_name(newsurl)
-        # 指定資料夾路徑
-        folder_path = title
-
-        # 檢查資料夾是否存在，如果不存在則創建它
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        
-        
-        #有多少集數
-        n=len(file["entries"])
-        print(title,"一共",n,"集")
-        #全部的全部的集數名稱
-
-        if n<=2 or test_n=="all":
-            test_n=n
-            
-        #for i in range(n):   #抓全部集數           #這邊的迴圈  是指定跑幾個幾集
-        #抓2集測試
-        for i in range(test_n):
-            time.sleep(random.randrange(1,5))
-            try:
-                mp3_url=file["entries"][i]["links"][1]["href"]
-            except:
-                mp3_url=file["entries"][i]["links"][0]["href"]
-            name=file["entries"][i]["title"]
-            download_map3(mp3_url,title+"/"+name)
-            #print(name,"下載完畢")
-            
-            
-            
-        
-        
-# 測試字符是否為中文
-def is_chinese(char):
-    # 判斷字符的 Unicode 編碼值是否在中文範圍內
-    if '\u4e00' <= char <= '\u9fff':
-        return True
-    else:
-        return False      
-    
-def get_all_category():
-    all_cata=['all',
-     'Arts',
-     'Arts / Books',
-     'Arts / Design',
-     'Arts / Fashion & Beauty',
-     'Arts / Food',
-     'Arts / Performing Arts',
-     'Arts / Visual Arts',
-     'Business',
-     'Business / Careers',
-     'Business / Entrepreneurship',
-     'Business / Investing',
-     'Business / Management',
-     'Business / Marketing',
-     'Business / Non-Profit',
-     'Comedy',
-     'Comedy / Comedy Interviews',
-     'Comedy / Improv',
-     'Comedy / Stand-Up',
-     'Education',
-     'Education / Courses',
-     'Education / How To',
-     'Education / Language Learning',
-     'Education / Self-Improvement',
-     'Fiction',
-     'Fiction / Comedy Fiction',
-     'Fiction / Drama',
-     'Fiction / Science Fiction',
-     'Government',
-     'Health & Fitness',
-     'Health & Fitness / Alternative Health',
-     'Health & Fitness / Fitness',
-     'Health & Fitness / Medicine',
-     'Health & Fitness / Mental Health',
-     'Health & Fitness / Nutrition',
-     'Health & Fitness / Sexuality',
-     'History',
-     'Kids & Family',
-     'Kids & Family / Education for Kids',
-     'Kids & Family / Parenting',
-     'Kids & Family / Pets & Animals',
-     'Kids & Family / Stories for Kids',
-     'Leisure',
-     'Leisure / Animation & Manga',
-     'Leisure / Automotive',
-     'Leisure / Aviation',
-     'Leisure / Crafts',
-     'Leisure / Games',
-     'Leisure / Hobbies',
-     'Leisure / Home & Garden',
-     'Leisure / Video Games',
-     'Music',
-     'Music / Music Commentary',
-     'Music / Music History',
-     'Music / Music Interviews',
-     'News',
-     'News / Business News',
-     'News / Daily News',
-     'News / Entertainment News',
-     'News / News Commentary',
-     'News / Politics',
-     'News / Sports News',
-     'News / Tech News',
-     'Religion & Spirituality',
-     'Religion & Spirituality / Buddhism',
-     'Religion & Spirituality / Christianity',
-     'Religion & Spirituality / Hinduism',
-     'Religion & Spirituality / Islam',
-     'Religion & Spirituality / Judaism',
-     'Religion & Spirituality / Religion',
-     'Religion & Spirituality / Spirituality',
-     'Science',
-     'Science / Astronomy',
-     'Science / Chemistry',
-     'Science / Earth Sciences',
-     'Science / Life Sciences',
-     'Science / Mathematics',
-     'Science / Natural Sciences',
-     'Science / Nature',
-     'Science / Physics',
-     'Science / Social Sciences',
-     'Society & Culture',
-     'Society & Culture / Documentary',
-     'Society & Culture / Personal Journals',
-     'Society & Culture / Philosophy',
-     'Society & Culture / Places & Travel',
-     'Society & Culture / Relationships',
-     'Sports',
-     'Sports / Baseball',
-     'Sports / Basketball',
-     'Sports / Cricket',
-     'Sports / Fantasy Sports',
-     'Sports / Football',
-     'Sports / Golf',
-     'Sports / Hockey',
-     'Sports / Rugby',
-     'Sports / Running',
-     'Sports / Soccer',
-     'Sports / Swimming',
-     'Sports / Tennis',
-     'Sports / Volleyball',
-     'Sports / Wilderness',
-     'Sports / Wrestling',
-     'TV & Film',
-     'TV & Film / After Shows',
-     'TV & Film / Film History',
-     'TV & Film / Film Interviews',
-     'TV & Film / Film Reviews',
-     'TV & Film / TV Reviews',
-     'Technology',
-     'True Crime']
-    all_category=[]
-    for i in range(len(all_cata)):
-        all_category.append((all_cata[i].replace(" / ","-").replace(" & ","-").replace(" ","-").lower()))
-    return all_category
-
-
-def get_name_href(category_name):
-    #抓到總排行榜   全部的網址 跟名稱
-    rank_list_herf=[]
-    rank_list_name=[]
-    # 目標網站的URL
-
-    url="https://rephonic.com/charts/apple/tw/"+category_name
-    # 發送GET請求獲取網頁內容
-    response = requests.get(url)
-
-    # 檢查是否成功獲取網頁內容
-    if response.status_code == 200:
-        # 使用BeautifulSoup解析HTML
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        # 在這裡編寫你的程式碼來處理解析後的網頁內容
-
-        # 以下是一個示例，尋找所有<a>標籤並獲取其連結和文字內容
-        for link in soup.find_all('a'):
-            href = link.get('href')
-            text = link.get_text()
-            if len(text)>0 and is_chinese(text)==True:
-                #print(f"連結: {href}\t文字內容: {text}")
-                rank_list_herf.append("https://rephonic.com"+href)
-                rank_list_name.append(text)
-            else:
-                pass
-    else:
-        print("無法獲取網頁內容")
-    return  rank_list_herf,rank_list_name
-
-
-
-def get_rss(url):
-    # 目標網頁的URL
-    #url = "https://rephonic.com/podcasts/li-jing-lei-de-chen-jing-shi-jian"
-
-    # 發送GET請求獲取網頁內容
-    response = requests.get(url)
-
-    # 檢查是否成功獲取網頁內容
-    if response.status_code == 200:
-        # 使用BeautifulSoup解析HTML
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        # 尋找包含RSS網址的元素
-        find_rss=soup.find_all("",text=re.compile("@context"))
-
-        # 要解析的 JSON 字串
-        json_str = find_rss[0]
-        # 解析 JSON 字串
-        data = json.loads(json_str)
-        # 提取 identifier 後面的文字
-        identifier_text = data["identifier"]
-        print(identifier_text)
-
-    else:
-        print("無法獲取網頁內容")
-    return identifier_text
-
-
-
-
-def main():
-    
-    #先得到所有分類的名字
-    category_name=get_all_category()
-    #使用者輸入想跑多少分類
-    category_n=input("你想要跑多少種分類？ 輸入數字，或者all抓取全部")
-    if category_n=="all":       
-        category_n=len(category_name)
-    else:
-        category_n=int(category_n)
-    
-    for i in range(category_n):      #這邊的迴圈  是指定跑幾個分類    
-        #得到該分類的所有節目名稱跟網址
-        rank_list_herf,rank_list_name=get_name_href(category_name[i])
-        #使用者輸入想跑多少節目
-        rank_list_n=5        #("一個分類想要抓取多少節目？ 輸入數字，或者all抓取全部")
-        if rank_list_n=="all":    
-            rank_list_n=len(rank_list_herf)
+            full_response = ""
+            for line in response.text.split('\n'):
+                if line:
+                    try:
+                        json_response = json.loads(line)
+                        full_response += json_response.get('response', '')
+                    except json.JSONDecodeError:
+                        print(f"Error decoding JSON: {line}")
+            return full_response
         else:
-            rank_list_n=int(rank_list_n)
+            raise RuntimeError(f"Error: {response.status_code}\n{response.text}")
+
+    def _generate(
+        self,
+        prompts: List[str],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> LLMResult:
+        generations = []
+        for prompt in prompts:
+            response = self._call(prompt, stop, run_manager, **kwargs)
+            generations.append([{"text": response}])
+        return LLMResult(generations=generations)
+
+    @property
+    def _llm_type(self) -> str:
+        return "chat_ollama"
+
+
+
+def setup_qa_chain(use_cpu=False):
+    
+    ollama_chat = ChatOllama(model_name='llama3:8b') #可換模型
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    
+    # 使用新的FAISS檢索邏輯，並傳入 use_cpu 參數
+    parent_directory = r"D:\Podcast_mp3_save\VectoreStore"  # 更新為您的向量庫目錄
+    embeddings = create_embeddings(use_cpu)
+    vectorstores = load_vectorstores_from_directory(parent_directory, embeddings)
+    
+    class CustomRetriever(BaseRetriever):
+        vectorstores: list = Field(default_factory=list)
+    
+        def __init__(self, vectorstores):
+            super().__init__()
+            self.vectorstores = vectorstores
+    
+        def _get_relevant_documents(self, query):
+            results = retrieve_from_multiple_stores(self.vectorstores, query, k=k, fetch_k=fetch_k)
+            return results  # 這裡應該直接返回文檔列表，而不是元組
+
+    custom_retriever = CustomRetriever(vectorstores)
+
+
+
+    template = """我將作為您的Podcast搜尋引擎。當您向我詢問有關特定Podcast節目或內容的問題時，我將使用RAG（檢索增強生成）技術來回答您的問題。請注意，如果RAG檢索庫中沒有您所需的內容，我將告知您「RAG資料庫內沒有您所需的內容」。我希望您根據這些條件提問。
+
+您的第一句話是「嗨」。
+
+檢索資料信息（包括節目標題）：
+{context}
+
+聊天歷史：
+{chat_history}
+
+當前問題：
+{question}
+
+回答指南：
+1. **問題處理**：首先對當前問題進行清晰的 prompt engineering，確保理解問題的核心需求。
+2. **信息使用**：僅使用檢索資料中的信息來回答問題。如果資料不足以回答問題，請直接回答「RAG 資料庫沒有您想要的資料」。
+3. **回答內容**：
+   - **具體內容要點**：回答應包括具體的內容要點。
+   - **時間戳**：每個內容要點應附上對應的時間戳。請使用完整的格式，例如（MM:SS~MM:SS）。如果只有一個時間點，則使用（MM:SS）。
+   - **節目標題**：最後應提供節目標題（格式：（節目標題：[完整標題]））。
+4. **回答格式示例**：
+   - 「根據檢索資料，[內容摘要1]（時間戳）。此外，[內容摘要2]（時間戳）。[如有更多內容，繼續列舉]。（節目標題：[完整標題]）」
+5. **回答語言和風格**：回答要清楚詳細，使用繁體中文。
+6. **資訊限制**：不要添加任何檢索資料中沒有的信息。
+7. **格式問題**: 請不要使用刪除線或任何其他特殊格式標記在你的回答中。
+8. **記憶**: 如果使用者希望接續前面的問答再次提問，系統應該能夠檢索並提供對話紀錄（chat_history），並根據這些紀錄回答使用者的問題。
+請根據上述指南回答問題：
+"""
+
+    document_prompt = PromptTemplate(
+        input_variables=["page_content", "episode_name", "Podcast_name"],
+        template="內容: {page_content}\n來源: {episode_name}, {Podcast_name}"
+    )
+    prompt = ChatPromptTemplate.from_template(template)
+
+    qa_chain = ConversationalRetrievalChain.from_llm(
+        llm=ollama_chat,
+        retriever=custom_retriever,
+        memory=memory,
+        combine_docs_chain_kwargs={
+            "prompt": prompt,
+            "document_variable_name": "context",
+            "document_prompt": document_prompt
+        }
+    )
+
+    return qa_chain, custom_retriever
+
+# 修改主函數以接受 use_cpu 參數
+def main(use_cpu=False):
+    qa_chain, retriever = setup_qa_chain(use_cpu)
+
+    def get_program_list(folder_path):
+        try:
+            programs = [name for name in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, name))]
+            program_list = "\n".join(f"{i + 1}: {program}" for i, program in enumerate(programs))
+            return program_list
+        except FileNotFoundError:
+            return "指定的資料夾不存在。"
+        except Exception as e:
+            return f"發生錯誤: {e}"
+
+    def chat_function(message, history):
+        try:
+            # 检查新问题是否与历史相关
+            is_related = check_relevance(message, history)
+
+            if not is_related:
+                # 如果不相关，清除对话历史
+                qa_chain.memory.clear()
+
+            results = retriever.invoke(message)
+            response = qa_chain.invoke({"question": message, "chat_history": history if is_related else []})
+            answer = response['answer']
+
+            unique_sources = set()
+            for result in results:
+                episode_name = result.metadata.get('episode_name', 'Unknown Episode')
+                podcast_name = result.metadata.get('Podcast_name', 'Unknown Podcast')
+                unique_sources.add((episode_name, podcast_name))
+
+            sources_str = "\n可參考下方節目集數：\n"
+            for idx, (episode_name, podcast_name) in enumerate(unique_sources, 1):
+                sources_str += f"Result {idx}: {episode_name}, {podcast_name}\n"
+
+            full_response = f"{answer}\n\n{sources_str}"
+
+            return full_response
+
+        except Exception as e:
+            error_message = f"發生錯誤: {str(e)}\n很抱歉，我無法處理您的問題。請再試一次或換個問題。"
+            return error_message
+    def check_relevance(new_question, history):
+        # 这里需要实现一个函数来判断新问题是否与历史相关
+        # 可以使用简单的关键词匹配或更复杂的语义相似度计算
+        # 这里只是一个示例实现
+        if not history:
+            return False
+
+        last_question = history[-1][0]  # 获取最后一个问题
         
-        for j in range(rank_list_n):     #這邊的迴圈  是指定跑幾個節目
-            
-            #得到該節目的rss
-            rss_url=get_rss(rank_list_herf[j])
-            #下載所有節目
-            get_rss_file(rss_url,3)    #後面的後面的數字   是測試用的時候。要下載幾集。  ＃要全部的集數。 輸入"all" 
-main()
+        # 使用一些简单的启发式方法来判断相关性
+        # 例如，检查关键词重叠
+        keywords_last = set(last_question.lower().split())
+        keywords_new = set(new_question.lower().split())
+        
+        overlap = len(keywords_last.intersection(keywords_new))
+        threshold = min(len(keywords_last), len(keywords_new)) * 0.3  # 30% 重叠作为阈值
+        
+        return overlap >= threshold
 
+    with gr.Blocks() as iface:
+        gr.Markdown(f"## 目前資料庫中的節目有：\n{get_program_list('/media/starklab/BACKUP/Podcast_project/轉錄文本存放區')}\n\n請在下方提問：")
 
+        chatbot = gr.ChatInterface(
+            chat_function,
+            title="Podcast Q&A Assistant",
+            description="Ask questions about podcast content, and I'll provide answers based on the retrieved information.",
+            theme="soft",
+            examples=[
+                "林書豪這個賽季遇到了什麼困難？",
+                "請告訴我這個節目討論了哪些主題？",
+                "這集節目中有提到哪些重要的觀點？"
+            ],
+            retry_btn="重試",
+            undo_btn="撤銷",
+            clear_btn="清除"
+        )
 
-# #貼上rss即可下載。＃新資料夾
-# get_rss_file('https://feeds.soundon.fm/podcasts/ecd31076-d12d-46dc-ba11-32d24b41cca5.xml')
-# #史塔克實驗室
-# get_rss_file("https://feeds.soundon.fm/podcasts/e4f101be-289a-4101-bb11-59fc61e5c88b.xml")
-# #達特嘴哥地圖砲 
-# get_rss_file("https://open.firstory.me/rss/user/ckcdy2bijlk7n0918zfcwxyyr")
+    iface.launch(share=True)
+
+if __name__ == "__main__":
+    use_cpu = False  # 設置為 True 以使用 CPU，False 則使用 GPU（如果可用）
+    main(use_cpu)

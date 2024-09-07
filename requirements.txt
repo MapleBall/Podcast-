@@ -9,6 +9,7 @@ langchain==0.2.6
 langchain-community==0.2.6
 sentence-transformers==3.0.1
 # chroma-hnswlib==0.7.6
-chromadb==0.5.5
-langchain_groq
 gradio
+
+langchain_groq
+scikit-learn
