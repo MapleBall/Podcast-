@@ -1,3 +1,4 @@
+# 清除緩存
 import torch
 torch.cuda.empty_cache()
 
@@ -203,12 +204,10 @@ def main(input_output_pairs):
         print("-----------------------------")
 
 if __name__ == "__main__":
-    # Define input and output directory pairs
+    # Input(文本) / output(向量庫) 路徑
     input_output_pairs = [
         (r"D:\Podcast_mp3存放區\轉錄文本存放區", 
          r"D:\Podcast_mp3存放區\向量庫"),
-        # Add more pairs as needed
-        # ("/path/to/another/input/directory", "/path/to/another/output/directory"),
     ]
     
     main(input_output_pairs)
