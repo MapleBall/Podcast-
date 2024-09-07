@@ -7,7 +7,7 @@
 ollama serve
 ```
 2. 下載所需要的LLM
-Exsample :
+Example :
 ```bash
 ollama pull llama3:8b
 ```
