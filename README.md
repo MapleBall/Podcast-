@@ -29,6 +29,14 @@ pip install -r requirements.txt
 - 確保安裝的 PyTorch 版本與 transformers 庫兼容。如果遇到兼容性問題，可能需要調整 transformers 的版本。
 - 如果您使用 GPU 版本的 FAISS，請確保您的 CUDA 環境與 PyTorch 和 FAISS 兼容。
 
+# 依賴項
+
+本項目使用了以下主要的 Python 包：
+
+- numpy 和 scikit-learn：用於數值計算和機器學習任務
+- sentence-transformers：用於文本嵌入和相似度計算
+- langchain 和 langchain-community：用於構建 AI 應用程序
+
 
 
 
