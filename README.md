@@ -1,13 +1,29 @@
-# Podcast Retrieval Chatbot
+# Podcast Retrieval Chatbot with ollama
+
+## 安裝 Ollama
+### 可以在 [Ollama官網](https://ollama.com/download) 依不同作業系統做安裝
+1. 執行 Ollama 服務
+```bash
+ollama serve
+```
+2. 下載所需要的LLM
+Exsample :
+```bash
+ollama pull llama3:8b
+```
+3. 可檢查是否有安裝成功
+```bash
+ollama list
+```
 
 ## 安裝說明
 以下安裝皆在 Python==3.8 測試
 
 1. 安裝 PyTorch:
-   請訪問 PyTorch 官網 (https://pytorch.org/get-started/locally/) 並根據您的系統和 CUDA 版本選擇適當的安裝指令。
+   請訪問 [PyTorch 官網](https://pytorch.org/get-started/locally/) 並根據您的系統和 CUDA 版本選擇適當的安裝指令。
    
 2. 安装 ffmpeg
-   若ffmpeg已安裝则跳過。
+   若ffmpeg已安裝則跳過。
 
 ### Ubuntu/Debian 系統
 ```bash
